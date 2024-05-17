@@ -60,6 +60,18 @@ startImage.style.height = 'auto'; // 이미지의 세로 길이를 가로 길이
 startImage.style.cursor = 'pointer';
 document.body.appendChild(startImage);
 
+const gameOverImage = new Image();  // 게임 오버 이미지
+gameOverImage.src = 'game_over.png';
+gameOverImage.style.position = 'absolute';
+gameOverImage.style.top = '450px';
+gameOverImage.style.left = '850px';
+gameOverImage.style.width = '200px';
+gameOverImage.style.height = 'auto';
+gameOverImage.style.display = 'none'; // 이미지를 처음에는 숨깁니다.
+document.body.appendChild(gameOverImage); // 이미지를 body에 추가합니다.
+
+
+
 // 오디오 엘리먼트 생성
 const buttonSound = new Audio('start_button.mp3');
 
@@ -81,7 +93,7 @@ startImage.addEventListener('click', () => {
   buttonSound.play();
 });
 
-const circle = Bodies.circle(600, 540, 150, {
+const circle1 = Bodies.circle(600, 540, 150, {
   isStatic: true,
   isSensor: true,
   render: {
@@ -150,7 +162,7 @@ const startGame = () => {
   });
   scoreElement.textContent = `Score: ${gamescore}`;
   timerElement.textContent = `Timer: ${timer}`;
-  World.add(world, [centerGravity,ex1,ex2,ex3, circle, circle2]); //[centerGravity, 계속 추가 가능]
+  World.add(world, [centerGravity,ex1,ex2,ex3, circle1, circle2]); //[centerGravity, 계속 추가 가능]
 
   //타이머
   const countdown = setInterval(() => {
@@ -159,8 +171,13 @@ const startGame = () => {
 
     // 타이머가 0이 되면 타이머 종료
     if (timer === 0) {
-      alert("게임오버");
       clearInterval(countdown);
+
+      // 게임 오버 이미지 표시
+      gameOverImage.style.display = 'block';
+
+      // 마지막 점수 표시
+      scoreElement.textContent = `Final Score: ${gamescore}`;
     }
   }, 1000);
 
@@ -187,8 +204,12 @@ const startGame = () => {
 
   const createRocket = () => {
     
-    // 기존 행성이 있으면 제거합니다.
-    if (shootingPlanet) {
+    // shootingPlanet 객체가 600, 540 위치에 있는지 확인하는 함수
+    function isAtPosition(shootingPlanet, x, y) {
+      return shootingPlanet.position.x === x && shootingPlanet.position.y === y;
+    }
+    
+    if (shootingPlanet && isAtPosition(shootingPlanet, 600, 540)) {
       World.remove(world, shootingPlanet);
     }
 
@@ -197,6 +218,7 @@ const startGame = () => {
 
     shootingPlanet = Bodies.circle(600, 540, planet.radius, {
       index: index,
+      angle: Math.PI / 2,
       isStatic: true,  // 행성 고정
       render: {
         sprite: { texture: `./rocket.png` }  // 행성 이미지 경로
@@ -205,34 +227,41 @@ const startGame = () => {
     World.add(world, shootingPlanet);
   };
 
-  let rKeyPressCount = 0; // "r" 키 입력 횟수 카운터
-  let RKeyPressCount = 0; // "R" 키 입력 횟수 카운터
+  let rKeyPressCount = 0;
+let RKeyPressCount = 0;
+let isKeyDisabled = false; // 키 입력 비활성화 여부를 추적하는 변수
 
-  let rockets = [ex1, ex2, ex3]; // 로켓들을 배열에 저장
-
-  window.addEventListener('keydown', (event) => {
-    if ((event.key === 'r' || event.key === 'R') && !isDragging && !isShooting) {
-      if (event.key === 'r') {
-        rKeyPressCount++; // "r" 키 입력이면 카운터 증가
-      } else {
-        RKeyPressCount++; // "R" 키 입력이면 카운터 증가
-      }
-
-      if (rKeyPressCount + RKeyPressCount <= 3) { // 카운터가 3 이하인 경우에만 로켓 생성
-        createRocket();  // 'r' 키를 눌렀을 때 행성 새로 생성
-
-        // "r" 및 "R" 키 입력이 1번 입력될 때마다 ex3, ex2, ex1 순서대로 제거
-        if (rKeyPressCount + RKeyPressCount === 1) {
-            World.remove(world, ex3);
-          } else if (rKeyPressCount + RKeyPressCount === 2){
-            World.remove(world, ex2);
-          } else if (rKeyPressCount + RKeyPressCount === 3){
-            World.remove(world, ex1);
-          }
-        }
-      }
+window.addEventListener('keydown', (event) => {
+  if ((event.key === 'r' || event.key === 'R') && !isDragging && !isShooting && !isKeyDisabled) {
+    if (event.key === 'r') {
+      rKeyPressCount++; // "r" 키 입력이면 카운터 증가
+    } else {
+      RKeyPressCount++; // "R" 키 입력이면 카운터 증가
     }
-  );
+
+    if (rKeyPressCount + RKeyPressCount <= 3) { // 카운터가 3 이하인 경우에만 로켓 생성
+      // "createRocket()" 함수를 1.5초 뒤에 실행
+      setTimeout(() => {
+        createRocket();  // 'r' 키를 눌렀을 때 행성 새로 생성
+      }, 1000);
+
+      // "r" 및 "R" 키 입력이 1번 입력될 때마다 ex3, ex2, ex1 순서대로 제거
+      if (rKeyPressCount + RKeyPressCount === 1) {
+        World.remove(world, ex3);
+      } else if (rKeyPressCount + RKeyPressCount === 2) {
+        World.remove(world, ex2);
+      } else if (rKeyPressCount + RKeyPressCount === 3) {
+        World.remove(world, ex1);
+      }
+
+      // 키 입력 비활성화 설정 및 3초 후에 다시 활성화
+      isKeyDisabled = true;
+      setTimeout(() => {
+        isKeyDisabled = false;
+      }, 3000);
+    }
+  }
+});
 
   // 행성 드래그 이벤트
 
@@ -265,8 +294,8 @@ const startGame = () => {
       const newPosition = { x: event.clientX, y: event.clientY };
 
       // 원의 중심 좌표
-      const circleCenterX = circle.position.x;
-      const circleCenterY = circle.position.y;
+      const circleCenterX = circle1.position.x;
+      const circleCenterY = circle1.position.y;
 
       // 원의 반지름
       const circleRadius = 150;
@@ -308,8 +337,8 @@ const startGame = () => {
 
 
     // 원의 중심 좌표
-    const circleCenterX = circle.position.x;
-    const circleCenterY = circle.position.y;
+    const circleCenterX = circle1.position.x;
+    const circleCenterY = circle1.position.y;
 
     // 행성의 현재 위치
     const shootingPlanetX = shootingPlanet.position.x;
@@ -359,7 +388,7 @@ const startGame = () => {
 
     setTimeout(() => {
       createPlanet();
-    }, 2500);  // 몇 초 뒤에 행성이 다시 생성되는지 시간 설정
+    }, 1000);  // 몇 초 뒤에 행성이 다시 생성되는지 시간 설정
   });
 
 
@@ -384,83 +413,104 @@ const startGame = () => {
     event.pairs.forEach((collision) => {
       const textureA = collision.bodyA.render.sprite.texture;  // bodyA의 텍스처
       const textureB = collision.bodyB.render.sprite.texture;  // bodyB의 텍스처
-
-      // 충돌한 두 물체 중 하나의 텍스처가 'rocket.png'이고 다른 하나가 centerGravity가 아닌 경우
-      if (
-        (textureA === './rocket.png' && collision.bodyB !== centerGravity) ||
-        (textureB === './rocket.png' && collision.bodyA !== centerGravity) ||
-        (textureA === './rocket.png' && collision.bodyB !== ex1) &&
-        (textureA === './rocket.png' && collision.bodyB !== ex2) &&
-        (textureA === './rocket.png' && collision.bodyB !== ex3) 
-        
-      ) {
-        if ((collision.bodyA !== circle && collision.bodyB !== circle) && (collision.bodyA !== circle2 && collision.bodyB !== circle2)) {
-          World.remove(world, [collision.bodyA, collision.bodyB]);  // 충돌한 두 물체 제거
-        } // 충돌한 두 물체 제거
+  
+      // rocket.png와의 충돌을 확인하는 조건
+      const isRocketCollision = (
+        (textureA === './rocket.png' && collision.bodyB !== centerGravity && collision.bodyB !== ex1 && collision.bodyB !== ex2 && collision.bodyB !== ex3 && collision.bodyB !== circle1 && collision.bodyB !== circle2) ||
+        (textureB === './rocket.png' && collision.bodyA !== centerGravity && collision.bodyA !== ex1 && collision.bodyA !== ex2 && collision.bodyA !== ex3 && collision.bodyA !== circle1 && collision.bodyA !== circle2)
+      );
+  
+      // rocket.png와 충돌한 경우 점수를 추가하는 로직
+      if (isRocketCollision) {
+        const index = textureA === './rocket.png' ? collision.bodyB.index : collision.bodyA.index;
+        switch (index) {
+          case 0:
+            gamescore += 1; // rocket과 충돌 시 다른 점수
+            break;
+          case 1:
+            gamescore += 2;
+            break;
+          case 2:
+            gamescore += 4;
+            break;
+          case 3:
+            gamescore += 8;
+            break;
+          case 4:
+            gamescore += 16;
+            break;
+          case 5:
+            gamescore += 32;
+            break;
+          case 6:
+            gamescore += 64;
+            break;
+          case 7:
+            gamescore += 128;
+            break;
+          case 8:
+            gamescore += 256;
+            break;
+        }
+        scoreElement.textContent = `Score: ${gamescore}`;  // 업데이트 스코어
+        World.remove(world, [collision.bodyA, collision.bodyB]);  // 충돌한 두 물체 제거
       } else {
         // 충돌한 두 물체의 인덱스가 같은 경우에만 다음 행성을 생성하여 추가합니다.
         if (collision.bodyA.index === collision.bodyB.index) {
           const index = collision.bodyA.index;
-
-          //행성이 합쳐질때 인덱스에 띠라 점수를 추가
-          switch (collision.bodyA.index){
+  
+          // 행성이 합쳐질 때 인덱스에 따라 점수를 추가
+          switch (index) {
             case 0:
-              gamescore += 1
-              break
+              gamescore += 2;
+              break;
             case 1:
-              gamescore += 3
-              break
+              gamescore += 4;
+              break;
             case 2:
-              gamescore += 6
-              break
+              gamescore += 8;
+              break;
             case 3:
-              gamescore += 10   
-              break 
+              gamescore += 16;
+              break;
             case 4:
-              gamescore += 15
-              break
+              gamescore += 32;
+              break;
             case 5:
-              gamescore += 21
-              break
+              gamescore += 64;
+              break;
             case 6:
-              gamescore += 28
-              break
+              gamescore += 128;
+              break;
             case 7:
-              gamescore += 36  
-              break 
+              gamescore += 256;
+              break;
             case 8:
-              gamescore += 45  
-              break
+              gamescore += 512;
+              break;
           }
-          scoreElement.textContent = `Score: ${gamescore}`;// 업데이트 스코어
-
-
+          scoreElement.textContent = `Score: ${gamescore}`;  // 업데이트 스코어
+  
           if (index === PLANETS.length - 1) {
             return;
           }
           World.remove(world, [collision.bodyA, collision.bodyB]);
-          if (fust==false){
-            if (gamescore>=100){
-              fust=true;
-              timer+=30
-            }
-            
+  
+          // 보너스 시간 추가
+          if (!fust && gamescore >= 100) {
+            fust = true;
+            timer += 30;
           }
-          if (sacund==false){
-            if (sacund>=200){
-              fust=true;
-              timer+=20
-            }
+          if (!sacund && gamescore >= 200) {
+            sacund = true;
+            timer += 20;
           }
-          if (serd==false){
-            if (serd>=300){
-              fust=true;
-              timer+=10
-            }
+          if (!serd && gamescore >= 300) {
+            serd = true;
+            timer += 10;
           }
-
+  
           const newPlanet = PLANETS[index + 1];
-
           const newBody = Bodies.circle(
             collision.collision.supports[0].x,
             collision.collision.supports[0].y,
@@ -472,7 +522,7 @@ const startGame = () => {
               }
             }
           );
-
+  
           World.add(world, newBody);
         }
       }
@@ -481,6 +531,3 @@ const startGame = () => {
 
   createPlanet();
 };
-
-
-
